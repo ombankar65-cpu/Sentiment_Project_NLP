@@ -4,13 +4,18 @@ from flask import Flask, request, render_template_string
 
 app = Flask(__name__)
 
-# Load the scikit-learn model
+# Load both the vectorizer and the model files
 MODEL_PATH = "model.pkl"
-if os.path.exists(MODEL_PATH):
+VECTORIZER_PATH = "vectorizer.pkl"
+
+model = None
+vectorizer = None
+
+if os.path.exists(MODEL_PATH) and os.path.exists(VECTORIZER_PATH):
     with open(MODEL_PATH, "rb") as f:
         model = pickle.load(f)
-else:
-    model = None
+    with open(VECTORIZER_PATH, "rb") as f:
+        vectorizer = pickle.load(f)
 
 # HTML Template with modern layout, tailored colors, and shadow effects
 HTML_TEMPLATE = """
@@ -182,12 +187,15 @@ def index():
 
     if request.method == "POST":
         text = request.form.get("text", "")
-        if not model:
-            error = "Model file could not be loaded on the server."
+        if not model or not vectorizer:
+            error = "Model or vectorizer files could not be loaded on the server."
         else:
             try:
-                # Expects a list/array of text strings
-                pred = model.predict([text])[0]
+                # 1. Convert raw text into numerical features using the vectorizer
+                vectorized_text = vectorizer.transform([text])
+                
+                # 2. Feed the 2D sparse matrix to the Logistic Regression model
+                pred = model.predict(vectorized_text)[0]
                 prediction = str(pred).capitalize()
             except Exception as e:
                 error = f"Prediction failed: {str(e)}"
